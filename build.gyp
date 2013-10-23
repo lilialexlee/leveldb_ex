@@ -43,6 +43,7 @@
         '<(project_path)/src/net/server.cc',
         '<(project_path)/src/util/daemonize.cc',
         '<(project_path)/src/util/config.cc',
+        '<(project_path)/src/storage/cache.cc',
         '<(project_path)/src/storage/storage.cc',
       ],
     },

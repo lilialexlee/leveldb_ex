@@ -3,9 +3,12 @@
 #include <glog/logging.h>
 #include "storage/storage.h"
 #include "util/config.h"
+#include "util/hash.h"
 
 namespace leveldb_ex {
 namespace storage {
+
+const int Storage::kMutexBuckets;
 
 Storage::Storage() {
   options_.create_if_missing = FLAGS_conf_leveldb_create_if_missing;
@@ -23,23 +26,38 @@ Storage::Storage() {
   read_options_.verify_checksums = FLAGS_conf_leveldb_read_verify_checksums;
   read_options_.fill_cache = FLAGS_conf_leveldb_read_fill_cache;
   write_options_.sync = FLAGS_conf_leveldb_write_sync;
+  cache_ = new Cache(FLAGS_conf_memory_cache_size, FLAGS_conf_memory_cache_chunk);
 }
 
 Storage::~Storage() {
+  delete cache_;
   delete db_;
 }
 
 leveldb::Status Storage::Get(const std::string& key, std::string* value) {
-  return db_->Get(read_options_, key, value);
+  if( cache_->LookUp(key,value) ) {
+    return leveldb::Status::OK();
+  }
+  leveldb::Status result = db_->Get(read_options_, key, value);
+  cache_->Change(key,*value);
+  return result;
+}
+
+int Storage::GetMutexBucket(const std::string& key) {
+  return leveldb_ex::util::hash(key.c_str(),key.size())%kMutexBuckets;
 }
 
 leveldb::Status Storage::Set(const std::string& key, const std::string& value) {
+  boost::mutex::scoped_lock lock(mutexs_[GetMutexBucket(key)]);
   NotifyModifiedKey(key);
+  cache_->Change(key,value);
   return db_->Put(write_options_, key, value);
 }
 
 leveldb::Status Storage::Del(const std::string& key) {
+  boost::mutex::scoped_lock lock(mutexs_[GetMutexBucket(key)]);
   NotifyModifiedKey(key);
+  cache_->Remove(key);
   return db_->Delete(write_options_, key);
 }
 

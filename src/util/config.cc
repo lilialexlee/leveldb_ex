@@ -31,3 +31,5 @@ DEFINE_bool(conf_leveldb_write_sync, false, "a DB write with sync==false has sim
         "with sync==true has similar crash semantics to a \"write()\""
         "system call followed by \"fsync()\" ");
 
+DEFINE_int32(conf_memory_cache_chunk, 100, "memory cache chunks");
+DEFINE_uint64(conf_memory_cache_size, 100000000, "memory cache size");

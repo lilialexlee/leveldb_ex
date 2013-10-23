@@ -29,4 +29,6 @@ DECLARE_bool(conf_leveldb_read_fill_cache);
 
 DECLARE_bool(conf_leveldb_write_sync);
 
+DECLARE_int32(conf_memory_cache_chunk);
+DECLARE_uint64(conf_memory_cache_size);
 #endif
