@@ -11,7 +11,7 @@ namespace net {
 
 class RequestParser {
  public:
-  static boost::tribool Parse(std::deque<char>* data,Request* req);
+  static boost::tribool Parse(std::deque<char>* data,boost::shared_ptr<Request>* req);
 };
 
 } // namespace leveldb_ex

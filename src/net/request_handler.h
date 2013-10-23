@@ -7,16 +7,21 @@
 namespace leveldb_ex {
 namespace net {
 
-typedef boost::shared_ptr<Reply> (*CommandProc)(const Request& request);
+class Connection;
+
+typedef boost::shared_ptr<Reply> (*CommandProc)(
+               const boost::shared_ptr<Request>& request,
+               boost::shared_ptr<Connection> connection);
+
+std::map<std::string,CommandProc>* Commands();
 
 class RequestHandler {
  public:
   RequestHandler();
-  boost::shared_ptr<Reply> HandleRequest(const Request& request);
+  boost::shared_ptr<Reply> HandleRequest(const boost::shared_ptr<Request>& request,
+               boost::shared_ptr<Connection> connection);
 
  private:
-  std::map<std::string,CommandProc> commands_; 
-
   //no copy allowed
   RequestHandler(const RequestHandler&);
   void operator=(const RequestHandler&);

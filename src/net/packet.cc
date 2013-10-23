@@ -49,6 +49,10 @@ std::string Request::ToString() {
   return oss.str();
 }
 
+void Request::CommandToUpper() {
+  std::transform(datas_[0].begin(), datas_[0].end(), datas_[0].begin(), toupper);
+}
+
 StatusReply::StatusReply(const std::string& status)
             :status_(status) {
 }
@@ -56,9 +60,16 @@ StatusReply::StatusReply(const std::string& status)
 void StatusReply::AppendTo(std::deque<char>* data) {
   std::ostringstream oss;
   oss << misc_strings::kStatusReplyFlag << status_
-      << misc_strings::kCR << misc_strings::kLF;   
-  std::string tmp(oss.str()); 
+      << misc_strings::kCR << misc_strings::kLF;
+  std::string tmp(oss.str());
   data->insert(data->end(), tmp.begin(), tmp.end());
+}
+
+void StatusReply::AppendTo(MultiBulkReply* mreply){
+  std::ostringstream oss;
+  oss << misc_strings::kStatusReplyFlag << status_
+          << misc_strings::kCR << misc_strings::kLF;
+  mreply->AddRawString(oss.str());
 }
 
 ErrorReply::ErrorReply(const std::string& error)
@@ -68,9 +79,16 @@ ErrorReply::ErrorReply(const std::string& error)
 void ErrorReply::AppendTo(std::deque<char>* data) {
   std::ostringstream oss;
   oss << misc_strings::kErrorReplyFlag << " ERR "
-      << error_ << misc_strings::kCR << misc_strings::kLF;   
-  std::string tmp(oss.str()); 
+      << error_ << misc_strings::kCR << misc_strings::kLF;
+  std::string tmp(oss.str());
   data->insert(data->end(), tmp.begin(), tmp.end());
+}
+
+void ErrorReply::AppendTo(MultiBulkReply* mreply){
+  std::ostringstream oss;
+  oss << misc_strings::kErrorReplyFlag << " ERR "
+      << error_ << misc_strings::kCR << misc_strings::kLF;
+  mreply->AddRawString(oss.str());
 }
 
 IntegerReply::IntegerReply(int num)
@@ -80,9 +98,16 @@ IntegerReply::IntegerReply(int num)
 void IntegerReply::AppendTo(std::deque<char>* data) {
   std::ostringstream oss;
   oss << misc_strings::kIntegerReplyFlag << num_
-      << misc_strings::kCR << misc_strings::kLF;   
-  std::string tmp(oss.str()); 
+      << misc_strings::kCR << misc_strings::kLF;
+  std::string tmp(oss.str());
   data->insert(data->end(), tmp.begin(), tmp.end());
+}
+
+void IntegerReply::AppendTo(MultiBulkReply* mreply){
+  std::ostringstream oss;
+  oss << misc_strings::kIntegerReplyFlag << num_
+      << misc_strings::kCR << misc_strings::kLF;
+  mreply->AddRawString(oss.str());
 }
 
 BulkReply::BulkReply(const std::string& data)
@@ -93,36 +118,53 @@ void BulkReply::AppendTo(std::deque<char>* data) {
   if(data_.size() == 0) {
     std::ostringstream oss;
     oss << misc_strings::kArgLenFlag << -1
-        << misc_strings::kCR << misc_strings::kLF;   
-    std::string tmp(oss.str()); 
+        << misc_strings::kCR << misc_strings::kLF;
+    std::string tmp(oss.str());
     data->insert(data->end(), tmp.begin(), tmp.end());
   } else {
     std::ostringstream oss;
     oss << misc_strings::kArgLenFlag << data_.size()
-        << misc_strings::kCR << misc_strings::kLF   
-        << data_ << misc_strings::kCR << misc_strings::kLF;   
-    std::string tmp(oss.str()); 
+        << misc_strings::kCR << misc_strings::kLF
+        << data_ << misc_strings::kCR << misc_strings::kLF;
+    std::string tmp(oss.str());
     data->insert(data->end(), tmp.begin(), tmp.end());
   }
 }
 
-void MultiBulkReply::AddString(const std::string& str) {
-  std::ostringstream oss;
-  oss << misc_strings::kArgLenFlag << str.size()
-      << misc_strings::kCR << misc_strings::kLF   
-      << str << misc_strings::kCR << misc_strings::kLF;   
-  std::vector<boost::asio::const_buffer> buffers; 
-  datas_.push_back(oss.str());
+
+void BulkReply::AppendTo(MultiBulkReply* mreply){
+  if(data_.size() == 0) {
+    std::ostringstream oss;
+    oss << misc_strings::kArgLenFlag << -1
+        << misc_strings::kCR << misc_strings::kLF;
+    mreply->AddRawString(oss.str());
+  } else {
+    std::ostringstream oss;
+    oss << misc_strings::kArgLenFlag << data_.size()
+        << misc_strings::kCR << misc_strings::kLF
+        << data_ << misc_strings::kCR << misc_strings::kLF;
+    mreply->AddRawString(oss.str());
+  }
+}
+
+void MultiBulkReply::AddRawString(const std::string& str) {
+  datas_.push_back(str);
 }
 
 void MultiBulkReply::AppendTo(std::deque<char>* data) {
   std::ostringstream oss;
   oss << misc_strings::kArgNumFlag << datas_.size()
-      << misc_strings::kCR << misc_strings::kLF;   
-  std::string tmp(oss.str()); 
+      << misc_strings::kCR << misc_strings::kLF;
+  std::string tmp(oss.str());
   data->insert(data->end(), tmp.begin(), tmp.end());
   for(size_t i=0; i< datas_.size(); ++i) {
     data->insert(data->end(), datas_[i].begin(), datas_[i].end());
+  }
+}
+
+void MultiBulkReply::AppendTo(MultiBulkReply* mreply) {
+  for(size_t i=0; i< datas_.size(); ++i) {
+    mreply->AddRawString(datas_[i]);
   }
 }
 

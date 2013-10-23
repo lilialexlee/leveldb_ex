@@ -11,15 +11,25 @@ A NoSQL Database based on leveldb
 
     leveldb项目作者是Google Fellow Jeff Dean和Sanjay Ghemawat
     
-*   网络通信库使用Boost ASIO，使用单io_service+多线程的模型
-  
-*   支持redis通信协议
+*   支持key/value的简单模型,支持GET/SET/DEL等操作  单机QPS可以达到10W+
 
-    可以用各种开源的redis客户端来连接server
+*   支持check-and-set的乐观锁 
+
+    一个客户端可能的操作:读取一个key的值,做一定的处理,再修改这个key的值. 但在这个过程中可能其他客户端会修改这个key的值.
+    可以使用乐观锁来解决这个问题,server会检查这段时间内这个key是否被其他客户端修改过,如果修改过,客户端可以进行重试.
+    
+    具体参见 http://redis.io/topics/transactions 
+  
+*   支持redis通信协议, 可以用各种开源的redis客户端来连接server
     
     支持PING 心跳命令
     
-    支持key/value的GET/SET/DEL命令 单机SET QPS 10W+
+    支持key/value的GET/SET/DEL命令
+
+    支持watch/multi/exec语义的乐观锁,通过watch来检查之前的取到的某些key是否被其他客户端修改,来实现乐观锁的高并发
+    但multi/exec中的语句不一定是原子执行,因为server与redis不同,是多线程的,CPU中间可能穿插处理其他线程的命令. 
+
+*   网络通信库使用Boost ASIO，使用单io_service+多线程的模型
 
 *   使用gflag，参数灵活可配. gflag是goole开源的参数解析工具，可以从命令行传递参数或者使用配置文件
 

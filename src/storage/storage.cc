@@ -34,11 +34,55 @@ leveldb::Status Storage::Get(const std::string& key, std::string* value) {
 }
 
 leveldb::Status Storage::Set(const std::string& key, const std::string& value) {
+  NotifyModifiedKey(key);
   return db_->Put(write_options_, key, value);
 }
 
 leveldb::Status Storage::Del(const std::string& key) {
+  NotifyModifiedKey(key);
   return db_->Delete(write_options_, key);
+}
+
+void Storage::Watch(const std::string& key, leveldb_ex::net::Connection* conn) {
+  boost::mutex::scoped_lock lock(watched_mutex_);
+  watched_keys_[key].insert(std::make_pair(conn,false));
+}
+
+void Storage::UnWatch(const std::string& key, leveldb_ex::net::Connection* conn) {
+  boost::mutex::scoped_lock lock(watched_mutex_);
+  std::map<std::string,WatchClients>::iterator it = watched_keys_.find(key);
+  if( it == watched_keys_.end() ) {
+    return;
+  } else {
+    it->second.erase(conn);
+    if ( (it->second).size() == 0 ) {
+      watched_keys_.erase(it);
+    }
+  }
+}
+
+void Storage::NotifyModifiedKey(const std::string& key) {
+  boost::mutex::scoped_lock lock(watched_mutex_);
+  std::map<std::string,WatchClients>::iterator key_it = watched_keys_.find(key);
+  if( key_it != watched_keys_.end() ) {
+    for(WatchClients::iterator client_it = key_it->second.begin();
+        client_it != key_it->second.end(); ++client_it ) {
+      client_it->second = true;
+    }
+  }
+}
+
+bool Storage::IsWatchedKeyModified(const std::string& key, leveldb_ex::net::Connection* const conn){
+  boost::mutex::scoped_lock lock(watched_mutex_);
+  std::map<std::string,WatchClients>::iterator key_it = watched_keys_.find(key);
+  if( key_it != watched_keys_.end() ) {
+    WatchClients::iterator client_it = key_it->second.find(conn);
+    if(client_it != key_it->second.end() &&
+        client_it->second == true ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 static pthread_once_t once = PTHREAD_ONCE_INIT;
